@@ -53,7 +53,13 @@ jobs:
   ui:
     name: ui (ubuntu, 3 engines)
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 15
+    # Browsers and their system packages come with the image, so there is no
+    # apt step to stall (the runner mirror once took 5 min for 10 MB). The tag
+    # must equal the locked @playwright/test version; the guard step checks it.
+    container:
+      image: mcr.microsoft.com/playwright:v1.65.0-noble
+      options: --user 1001
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -61,11 +67,12 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - name: Playwright browsers
-        # Bounded and retried; see the script for the apt stall it handles.
-        timeout-minutes: 16
+      - name: Playwright version matches the image
         shell: bash
-        run: bash scripts/playwright-install.sh chromium webkit firefox
+        run: |
+          want="1.65.0"
+          have="$(npx playwright --version | awk '{print $2}')"
+          [ "$have" = "$want" ] || { echo "@playwright/test is $have but the job image is v$want; update both together"; exit 1; }
       - name: Playwright (chromium, webkit, firefox against the mock)
         env:
           CI: "1"
@@ -84,7 +91,13 @@ jobs:
   stack:
     name: stack (ubuntu, real server)
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 15
+    # Browsers and their system packages come with the image, so there is no
+    # apt step to stall (the runner mirror once took 5 min for 10 MB). The tag
+    # must equal the locked @playwright/test version; the guard step checks it.
+    container:
+      image: mcr.microsoft.com/playwright:v1.65.0-noble
+      options: --user 1001
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -92,11 +105,12 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - name: Playwright browsers
-        # Bounded and retried; see the script for the apt stall it handles.
-        timeout-minutes: 16
+      - name: Playwright version matches the image
         shell: bash
-        run: bash scripts/playwright-install.sh chromium webkit firefox
+        run: |
+          want="1.65.0"
+          have="$(npx playwright --version | awk '{print $2}')"
+          [ "$have" = "$want" ] || { echo "@playwright/test is $have but the job image is v$want; update both together"; exit 1; }
       - name: Real stack (built client + server + temp SQLite)
         env:
           CI: "1"

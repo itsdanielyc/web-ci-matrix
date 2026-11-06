@@ -1,7 +1,7 @@
 # Regenerates the pixel baselines (and the shared ARIA and geometry
-# snapshots) on the runner itself, then commits them to the dispatching
-# branch or, from main, opens a pull request. Baselines are never captured
-# on a developer machine: runner fonts differ. One ubuntu job covers the
+# snapshots) in the same Playwright image the ci ui job uses, then commits
+# them to the dispatching branch or, from main, opens a pull request. Never
+# captured on a developer machine: fonts differ. One ubuntu job covers the
 # three engines, because CI runs the UI suite on ubuntu only.
 name: snapshots
 
@@ -16,7 +16,13 @@ jobs:
   capture:
     name: capture (ubuntu-latest)
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 15
+    # Browsers and their system packages come with the image, so there is no
+    # apt step to stall (the runner mirror once took 5 min for 10 MB). The tag
+    # must equal the locked @playwright/test version; the guard step checks it.
+    container:
+      image: mcr.microsoft.com/playwright:v1.65.0-noble
+      options: --user 1001
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -24,11 +30,12 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - name: Playwright browsers
-        # Bounded and retried; see the script for the apt stall it handles.
-        timeout-minutes: 16
+      - name: Playwright version matches the image
         shell: bash
-        run: bash scripts/playwright-install.sh chromium webkit firefox
+        run: |
+          want="1.65.0"
+          have="$(npx playwright --version | awk '{print $2}')"
+          [ "$have" = "$want" ] || { echo "@playwright/test is $have but the job image is v$want; update both together"; exit 1; }
       - name: Capture baselines
         env:
           CI: "1"
