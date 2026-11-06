@@ -46,13 +46,15 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
+      # By name, not pattern: a pattern that matches a single artifact is
+      # extracted straight into path, without the per-artifact folder.
       - uses: actions/download-artifact@v8
         with:
-          pattern: snapshots-*
+          name: snapshots-ubuntu-latest
           path: incoming
       - name: Merge the capture set
         run: |
-          for d in incoming/snapshots-*; do cp -R "$d"/. tests/ui/__snapshots__/; done
+          cp -R incoming/. tests/ui/__snapshots__/
           git status --short tests/ui/__snapshots__
       - name: Commit the baselines
         env:
