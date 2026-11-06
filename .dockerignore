@@ -1,0 +1,11 @@
+node_modules
+dist
+data
+artifacts
+test-results
+test-results-stack
+playwright-report
+playwright-report-stack
+.git
+.github
+*.log

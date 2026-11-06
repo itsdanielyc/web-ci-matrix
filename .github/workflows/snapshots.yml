@@ -1,0 +1,87 @@
+# Regenerates the pixel baselines (and the shared ARIA and geometry
+# snapshots) on the runner itself, then commits them to the dispatching
+# branch or, from main, opens a pull request. Baselines are never captured
+# on a developer machine: runner fonts differ. One ubuntu job covers the
+# three engines, because CI runs the UI suite on ubuntu only.
+name: snapshots
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  capture:
+    name: capture (ubuntu-latest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Playwright browsers
+        # Ubuntu's apt can stall on a service-restart prompt during
+        # --with-deps; keep it non-interactive and bound each attempt.
+        timeout-minutes: 12
+        shell: bash
+        env:
+          DEBIAN_FRONTEND: noninteractive
+          NEEDRESTART_MODE: a
+        run: |
+          bound=""; command -v timeout >/dev/null && bound="timeout 420"   # macOS has no timeout(1)
+          for attempt in 1 2; do
+            $bound npx playwright install --with-deps chromium webkit firefox && exit 0
+            echo "attempt $attempt failed or stalled; retrying"
+          done
+          exit 1
+      - name: Capture baselines
+        env:
+          CI: "1"
+        run: npm run test:ui:update
+      - uses: actions/upload-artifact@v7
+        with:
+          name: snapshots-ubuntu-latest
+          path: tests/ui/__snapshots__
+          retention-days: 3
+
+  propose:
+    name: commit or open pull request
+    needs: [capture]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: snapshots-*
+          path: incoming
+      - name: Merge the capture set
+        run: |
+          for d in incoming/snapshots-*; do cp -R "$d"/. tests/ui/__snapshots__/; done
+          git status --short tests/ui/__snapshots__
+      - name: Commit the baselines
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git add tests/ui/__snapshots__
+          if git diff --cached --quiet; then echo "No snapshot changes."; exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Update visual snapshots from run ${{ github.run_id }}"
+          if [ "${{ github.ref_name }}" != "main" ]; then
+            # Dispatched on a working branch: land the baselines on that branch,
+            # so the pull request that is already open picks them up.
+            git push origin "HEAD:${{ github.ref_name }}"
+          else
+            branch="snapshots/update-${{ github.run_id }}"
+            git checkout -b "$branch"
+            git push origin "$branch"
+            gh pr create --base main --head "$branch" \
+              --title "Update visual snapshots (run ${{ github.run_id }})" \
+              --body "Baselines captured on ubuntu-latest (chromium, webkit, firefox) by the snapshots workflow. Review the images before merging."
+          fi

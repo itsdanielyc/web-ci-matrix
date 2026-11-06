@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>spike</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+    <script type="module" src="/src/main.ts"></script>
+  </head>
+  <body>
+    <main class="container" data-geo="main">
+      <h1 data-geo="title">Notes</h1>
+
+      <form id="note-form" class="row" data-geo="form" aria-label="New note" novalidate>
+        <input id="note-input" name="text" autocomplete="off" placeholder="Write a note..." aria-label="Note" />
+        <button type="submit">Add note</button>
+      </form>
+      <p id="form-error" class="error" role="alert" data-geo="error"></p>
+
+      <section aria-labelledby="notes-heading" data-geo="notes">
+        <h2 id="notes-heading">Your notes <span id="note-count" class="count" data-testid="note-count"></span></h2>
+        <ul id="note-list" aria-label="Notes"></ul>
+      </section>
+
+      <footer class="meta" data-geo="meta">
+        <span>backend: <strong id="backend-badge" data-testid="backend-badge">…</strong></span>
+        <span>server: <span id="server-status" data-testid="server-status">…</span></span>
+      </footer>
+    </main>
+  </body>
+</html>

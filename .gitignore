@@ -1,0 +1,28 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.sw?
+
+# Runtime data (the local SQLite database)
+data/
+
+# Build and test output
+artifacts/
+test-results/
+test-results-stack/
+playwright-report/
+playwright-report-stack/
+contact-sheet.html

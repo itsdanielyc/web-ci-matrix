@@ -1,0 +1,173 @@
+# Main workflow, in tiers of cost:
+#   unit       (ubuntu, windows)  L0 tsc, L1 unit, L2 contract (mock vs the
+#                                 in-process server), L3 integration (temp
+#                                 SQLite file, real server process restart).
+#   ui         (ubuntu)           L4/L5: Playwright on chromium, webkit and
+#                                 firefox against the Vite dev server and the
+#                                 labelled mock; ARIA, geometry, pixels.
+#   stack      (ubuntu)           L6: the built client served by the real
+#                                 server on a temp database, three engines.
+#   container  (ubuntu)           L7 analogue: docker build, run, health,
+#                                 create/list, restart keeps data, stop.
+#   sheet      (ubuntu)           Every real-stack screenshot on one page.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    name: unit (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Lint and types
+        run: npm run lint
+      - name: Unit (L1)
+        run: npm run test:unit
+      - name: Contract, mock vs server (L2)
+        run: npm run test:contract
+      - name: Integration, temp SQLite and server process (L3)
+        run: npm run test:integration
+
+  ui:
+    name: ui (ubuntu, 3 engines)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Playwright browsers
+        # Ubuntu's apt can stall on a service-restart prompt during
+        # --with-deps; keep it non-interactive and bound each attempt.
+        timeout-minutes: 12
+        shell: bash
+        env:
+          DEBIAN_FRONTEND: noninteractive
+          NEEDRESTART_MODE: a
+        run: |
+          bound=""; command -v timeout >/dev/null && bound="timeout 420"   # macOS has no timeout(1)
+          for attempt in 1 2; do
+            $bound npx playwright install --with-deps chromium webkit firefox && exit 0
+            echo "attempt $attempt failed or stalled; retrying"
+          done
+          exit 1
+      - name: Playwright (chromium, webkit, firefox against the mock)
+        env:
+          CI: "1"
+        run: npm run test:ui
+      - name: Upload report and diffs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ui-ubuntu
+          path: |
+            playwright-report
+            test-results
+          if-no-files-found: ignore
+          retention-days: 7
+
+  stack:
+    name: stack (ubuntu, real server)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Playwright browsers
+        timeout-minutes: 12
+        shell: bash
+        env:
+          DEBIAN_FRONTEND: noninteractive
+          NEEDRESTART_MODE: a
+        run: |
+          bound=""; command -v timeout >/dev/null && bound="timeout 420"   # macOS has no timeout(1)
+          for attempt in 1 2; do
+            $bound npx playwright install --with-deps chromium webkit firefox && exit 0
+            echo "attempt $attempt failed or stalled; retrying"
+          done
+          exit 1
+      - name: Real stack (built client + server + temp SQLite)
+        env:
+          CI: "1"
+        run: npm run test:e2e
+      - name: Upload screenshots and report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: stack-ubuntu
+          path: |
+            artifacts/stack
+            playwright-report-stack
+            test-results-stack
+          if-no-files-found: warn
+          retention-days: 7
+
+  container:
+    name: container (ubuntu, docker)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build, run, probe, restart, stop
+        env:
+          LOG_FILE: container.log
+        run: bash scripts/container-smoke.sh
+      - name: Upload container log
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: container-log
+          path: container.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+  sheet:
+    name: contact sheet
+    needs: [stack]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: stack-*
+          path: shots
+      - run: node scripts/contact-sheet.mjs shots contact-sheet.html
+      - uses: actions/upload-artifact@v7
+        with:
+          name: contact-sheet
+          path: contact-sheet.html
+          retention-days: 14

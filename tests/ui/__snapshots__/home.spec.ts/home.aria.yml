@@ -1,0 +1,19 @@
+- main:
+  - heading "Notes" [level=1]
+  - form "New note":
+    - textbox "Note":
+      - /placeholder: Write a note...
+    - button "Add note"
+  - alert
+  - region "Your notes 2 notes":
+    - heading "Your notes 2 notes" [level=2]
+    - list "Notes":
+      - listitem:
+        - text: Second note from the mock
+        - 'button "Delete note: Second note from the mock"'
+      - listitem:
+        - text: First note from the mock
+        - 'button "Delete note: First note from the mock"'
+  - text: "backend:"
+  - strong: mock
+  - text: "server: ok"

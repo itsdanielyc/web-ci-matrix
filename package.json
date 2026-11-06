@@ -1,0 +1,38 @@
+{
+  "name": "spike",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "vite",
+    "dev:live": "cross-env VITE_BACKEND=live vite",
+    "start": "node server/src/index.ts",
+    "build": "tsc && vite build",
+    "lint": "tsc",
+    "test:unit": "vitest run tests/unit",
+    "test:contract": "vitest run tests/contract",
+    "test:integration": "vitest run tests/integration",
+    "test:ui": "playwright test",
+    "test:ui:update": "cross-env UPDATE_SNAPSHOTS=1 playwright test --update-snapshots=all",
+    "test:e2e": "npm run build && playwright test --config playwright.stack.config.ts",
+    "test:container": "bash scripts/container-smoke.sh",
+    "contact-sheet": "node scripts/contact-sheet.mjs",
+    "triage": "node scripts/triage.mjs"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.1.6",
+    "hono": "^4.13.16",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.65.0",
+    "@types/node": "^24.19.2",
+    "cross-env": "^10.1.0",
+    "typescript": "~6.0.3",
+    "vite": "^8.3.6",
+    "vitest": "^5.1.0"
+  }
+}
