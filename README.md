@@ -30,8 +30,10 @@ Dockerfile           L7 analogue: scripts/container-smoke.sh builds, runs, probe
 | L7 | `docker build`, run with a volume, health, create and list, restart keeps the note, stop | `container` job on ubuntu |
 | sheet | Every real-stack screenshot on one HTML page | `contact sheet` job |
 
-Pixel baselines come from the `snapshots` workflow on the runner, never
-from a laptop: dispatched on a branch it commits there; on main it opens a
+The ui, stack and snapshots jobs run inside `mcr.microsoft.com/playwright:v1.65.0-noble`
+(no apt step); `@playwright/test` is pinned to the same version. Pixel
+baselines come from the `snapshots` workflow in that image, never from a
+laptop: dispatched on a branch it commits there; on main it opens a
 pull request.
 
 ## Commands
