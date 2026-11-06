@@ -53,7 +53,7 @@ jobs:
   ui:
     name: ui (ubuntu, 3 engines)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -62,20 +62,10 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Playwright browsers
-        # Ubuntu's apt can stall on a service-restart prompt during
-        # --with-deps; keep it non-interactive and bound each attempt.
-        timeout-minutes: 12
+        # Bounded and retried; see the script for the apt stall it handles.
+        timeout-minutes: 16
         shell: bash
-        env:
-          DEBIAN_FRONTEND: noninteractive
-          NEEDRESTART_MODE: a
-        run: |
-          bound=""; command -v timeout >/dev/null && bound="timeout 420"   # macOS has no timeout(1)
-          for attempt in 1 2; do
-            $bound npx playwright install --with-deps chromium webkit firefox && exit 0
-            echo "attempt $attempt failed or stalled; retrying"
-          done
-          exit 1
+        run: bash scripts/playwright-install.sh chromium webkit firefox
       - name: Playwright (chromium, webkit, firefox against the mock)
         env:
           CI: "1"
@@ -94,7 +84,7 @@ jobs:
   stack:
     name: stack (ubuntu, real server)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -103,18 +93,10 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Playwright browsers
-        timeout-minutes: 12
+        # Bounded and retried; see the script for the apt stall it handles.
+        timeout-minutes: 16
         shell: bash
-        env:
-          DEBIAN_FRONTEND: noninteractive
-          NEEDRESTART_MODE: a
-        run: |
-          bound=""; command -v timeout >/dev/null && bound="timeout 420"   # macOS has no timeout(1)
-          for attempt in 1 2; do
-            $bound npx playwright install --with-deps chromium webkit firefox && exit 0
-            echo "attempt $attempt failed or stalled; retrying"
-          done
-          exit 1
+        run: bash scripts/playwright-install.sh chromium webkit firefox
       - name: Real stack (built client + server + temp SQLite)
         env:
           CI: "1"
@@ -165,7 +147,10 @@ jobs:
         with:
           pattern: stack-*
           path: shots
-      - run: node scripts/contact-sheet.mjs shots contact-sheet.html
+      - name: Build the sheet (empty when the stack job produced no screenshots)
+        run: |
+          mkdir -p shots
+          node scripts/contact-sheet.mjs shots contact-sheet.html
       - uses: actions/upload-artifact@v7
         with:
           name: contact-sheet
